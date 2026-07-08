@@ -1,0 +1,40 @@
+{
+  "name": "1306 Cleaner Pro ALL stock",
+  "short_name": "1306 Cleaner",
+  "description": "Clean ไฟล์ 1306 สำหรับคลังใหญ่และคลังย่อย",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e40af",
+  "orientation": "any",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "เปิด Cleaner",
+      "short_name": "Clean",
+      "description": "เปิดหน้า Clean 1306",
+      "url": "./",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

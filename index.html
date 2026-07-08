@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1306 Cleaner Pro ALL stock</title>
+  <meta name="theme-color" content="#1e40af">
+  <meta name="description" content="PWA สำหรับ Clean ไฟล์ 1306 คลังใหญ่และคลังย่อย">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="./vendor/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f8fafc; }
+    th { position: sticky; top: 0; z-index: 10; background: #f1f5f9; }
+    .table-scroll { max-height: 430px; overflow: auto; }
+    .mode-active { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+    .mode-idle { background: white; color: #334155; border-color: #cbd5e1; }
+  </style>
+</head>
+<body class="text-slate-800">
+  <header class="bg-blue-800 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <i data-lucide="database-zap" class="w-8 h-8 text-blue-200"></i>
+        <div>
+          <h1 class="text-2xl font-bold leading-tight">1306 Cleaner Pro ALL stock</h1>
+          <p class="text-blue-200 text-sm">Clean 1306 สำหรับคลังใหญ่และคลังย่อยในไฟล์เดียว</p>
+        </div>
+      </div>
+      <div id="modeBadge" class="hidden sm:block text-sm bg-blue-700 px-3 py-1 rounded-full border border-blue-600">โหมด: คลังใหญ่</div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <section class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-8">
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+        <div>
+          <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-5 h-5 text-blue-600"></i>
+            เลือกคลังและนำเข้าไฟล์
+          </h2>
+          <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden" role="group" aria-label="เลือกโหมดคลัง">
+            <button id="mainModeBtn" type="button" class="mode-active px-5 py-2 text-sm font-semibold flex items-center gap-2 border-r border-slate-300" data-mode="main">
+              <i data-lucide="warehouse" class="w-4 h-4"></i> คลังใหญ่
+            </button>
+            <button id="subModeBtn" type="button" class="mode-idle px-5 py-2 text-sm font-semibold flex items-center gap-2" data-mode="sub">
+              <i data-lucide="store" class="w-4 h-4"></i> คลังย่อย
+            </button>
+          </div>
+        </div>
+
+        <div class="w-full lg:max-w-xl bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <label for="excludeLots" class="block text-sm font-semibold text-slate-700 mb-1">คำในล๊อตที่ต้องตัดออก</label>
+          <input id="excludeLots" type="text" value="01, test" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border outline-none">
+          <p class="text-xs text-slate-500 mt-1">ค่าเริ่มต้นนี้ใช้กับทั้งคลังใหญ่และคลังย่อยเพื่อให้ตรงกับไฟล์ตัวอย่างที่ตรวจแล้ว</p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col md:flex-row gap-4 items-center">
+        <input id="fileInput" type="file" accept=".csv,.xls,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        <button id="processBtn" type="button" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <i data-lucide="play-circle" class="w-5 h-5"></i> ประมวลผล
+        </button>
+      </div>
+    </section>
+
+    <section id="resultsArea" class="hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-bold mb-4 text-emerald-700 flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-5 h-5"></i> สรุปการ Clean
+          </h3>
+          <ul id="logList" class="space-y-2 text-sm text-slate-600 max-h-56 overflow-y-auto"></ul>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">ดาวน์โหลดไฟล์พร้อมใช้</h3>
+            <p id="exportSummary" class="text-sm text-slate-500 mt-2">พร้อมส่งออก</p>
+          </div>
+          <button id="downloadBtn" type="button" class="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg shadow-sm transition-all flex items-center gap-3 justify-center">
+            <i data-lucide="file-spreadsheet" class="w-6 h-6"></i> ดาวน์โหลด Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+          <div class="text-xs text-slate-500">Table</div>
+          <div id="countTable" class="text-2xl font-bold text-blue-700">0</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+          <div class="text-xs text-slate-500">Exp</div>
+          <div id="countExp" class="text-2xl font-bold text-emerald-700">0</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+          <div class="text-xs text-slate-500">Buy</div>
+          <div id="countBuy" class="text-2xl font-bold text-purple-700">0</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+          <div class="text-xs text-slate-500">Metadata sheets</div>
+          <div id="countMetadata" class="text-2xl font-bold text-slate-700">0</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <h3 id="previewTitle" class="font-bold text-slate-700">Preview: Table</h3>
+          <button id="downloadCsvBtn" type="button" class="text-slate-500 hover:text-slate-800 text-sm py-1 px-3 border border-slate-300 rounded flex items-center gap-1 w-fit">
+            <i data-lucide="download" class="w-4 h-4"></i> โหลด CSV ของ Table
+          </button>
+        </div>
+        <div class="table-scroll border border-slate-200 rounded-lg">
+          <table class="w-full text-sm text-left text-slate-500 whitespace-nowrap">
+            <thead class="text-xs text-slate-700 uppercase bg-slate-100" id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    let mode = 'main';
+    let headers = [];
+    let tableData = [];
+    let expData = [];
+    let buyData = [];
+    let metadataSheets = [];
+
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const resultsArea = document.getElementById('resultsArea');
+    const logList = document.getElementById('logList');
+    const excludeLotsInput = document.getElementById('excludeLots');
+    const mainModeBtn = document.getElementById('mainModeBtn');
+    const subModeBtn = document.getElementById('subModeBtn');
+    const modeBadge = document.getElementById('modeBadge');
+    const exportSummary = document.getElementById('exportSummary');
+
+    function setMode(nextMode) {
+      mode = nextMode;
+      const isMain = mode === 'main';
+      mainModeBtn.className = `${isMain ? 'mode-active' : 'mode-idle'} px-5 py-2 text-sm font-semibold flex items-center gap-2 border-r border-slate-300`;
+      subModeBtn.className = `${isMain ? 'mode-idle' : 'mode-active'} px-5 py-2 text-sm font-semibold flex items-center gap-2`;
+      modeBadge.textContent = `โหมด: ${isMain ? 'คลังใหญ่' : 'คลังย่อย'}`;
+      if (!resultsArea.classList.contains('hidden')) resetResults();
+      lucide.createIcons();
+    }
+
+    function resetResults() {
+      tableData = [];
+      expData = [];
+      buyData = [];
+      logList.innerHTML = '';
+      resultsArea.classList.add('hidden');
+      updateCounts();
+    }
+
+    mainModeBtn.addEventListener('click', () => setMode('main'));
+    subModeBtn.addEventListener('click', () => setMode('sub'));
+
+    fileInput.addEventListener('change', event => {
+      processBtn.disabled = event.target.files.length === 0;
+      resetResults();
+    });
+
+    processBtn.addEventListener('click', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: false, dense: true });
+          const firstSheetName = workbook.SheetNames[0];
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1, raw: true, defval: '' });
+          const extraSheets = workbook.SheetNames.slice(1).map(sheetName => ({
+            name: sheetName,
+            rows: XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: '' })
+          }));
+          processDataArray(rows, extraSheets);
+        } catch (error) {
+          console.error(error);
+          alert('เกิดข้อผิดพลาดในการอ่านไฟล์ โปรดตรวจสอบว่าเป็นไฟล์ Excel หรือ CSV ที่ถูกต้อง');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', exportToExcel);
+    document.getElementById('downloadCsvBtn').addEventListener('click', () => downloadCSV(tableData, `${mode === 'main' ? '1306_table' : '1306_sub_table'}.csv`));
+
+    function toNumber(value, fallback = NaN) {
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      return Number.isFinite(num) ? num : fallback;
+    }
+
+    function normalizeNumber(value) {
+      if (!Number.isFinite(value)) return value;
+      const rounded = Math.round(value);
+      return Math.abs(value - rounded) < 1e-9 ? rounded : Number(value.toFixed(10));
+    }
+
+    function gcd(a, b) {
+      a = Math.abs(a);
+      b = Math.abs(b);
+      while (b) {
+        const t = b;
+        b = a % b;
+        a = t;
+      }
+      return a || 1;
+    }
+
+    function decimalFactor(value) {
+      const text = String(value).toLowerCase();
+      if (!text.includes('.') || text.includes('e')) return 1;
+      const decimals = text.split('.')[1].replace(/0+$/, '').length;
+      if (decimals === 0) return 1;
+      const denominator = 10 ** decimals;
+      const numerator = Math.round(Math.abs(value) * denominator);
+      return denominator / gcd(numerator, denominator);
+    }
+
+    function cleanKey(value) {
+      return String(value ?? '').trim().toLowerCase();
+    }
+
+    function parseDateValue(value) {
+      if (value === null || value === undefined || value === '') return null;
+
+      if (!isNaN(value) && String(value).trim() !== '') {
+        const serial = parseFloat(value);
+        const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+        return {
+          day: date.getUTCDate(),
+          month: date.getUTCMonth() + 1,
+          year: date.getUTCFullYear(),
+          time: date.getTime()
+        };
+      }
+
+      if (typeof value === 'string') {
+        const text = value.trim();
+        const parts = text.split(/[\/\-]/);
+        if (parts.length === 3) {
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          let y = parseInt(parts[2], 10);
+          if (y > 2400) y -= 543;
+          const date = new Date(Date.UTC(y, m - 1, d));
+          if (!Number.isNaN(date.getTime())) {
+            return { day: d, month: m, year: y, time: date.getTime() };
+          }
+        }
+      }
+
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) {
+        return {
+          day: date.getDate(),
+          month: date.getMonth() + 1,
+          year: date.getFullYear(),
+          time: date.getTime()
+        };
+      }
+      return null;
+    }
+
+    function processDataArray(rows, extraSheets = []) {
+      logList.innerHTML = '';
+      metadataSheets = extraSheets.map(sheet => ({
+        name: sheet.name,
+        rows: sheet.rows.filter(row => row.length > 0 && row.some(cell => cell !== ''))
+      }));
+
+      rows = rows.filter(row => row.length > 0 && row.some(cell => cell !== ''));
+      if (rows.length < 2) {
+        alert('ไม่พบข้อมูล หรือไฟล์ว่างเปล่า');
+        return;
+      }
+
+      headers = rows[0].map(header => String(header).trim());
+      let data = rows.slice(1).map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index] !== undefined ? row[index] : '';
+        });
+        return obj;
+      });
+
+      addLog(`รับข้อมูลสำเร็จ: ${data.length.toLocaleString()} รายการ`, 'info');
+
+      const colQty = headers.find(header => header.includes('จำนวน'));
+      const colLot = headers.find(header => header.includes('ล๊อต') || header.toLowerCase() === 'lot');
+      const colPrice = headers.find(header => header.includes('ราคาต่อหน่วย'));
+      const colMulti = headers.find(header => header.toLowerCase() === 'multiplier' || header.includes('ตัวคูณ'));
+      const colExp = headers.find(header => header.includes('วันหมดอายุ') || header.toLowerCase() === 'exp');
+      const colCode = headers.find(header => header.includes('รหัสยา')) || headers[1];
+      const colValue = headers.find(header => header.includes('มูลค่า')) || headers[7];
+
+      if (!colQty || !colLot || !colPrice || !colExp) {
+        addLog('คำเตือน: พบหัวคอลัมน์สำคัญไม่ครบ (จำนวน, ล๊อต, ราคาต่อหน่วย, วันหมดอายุ)', 'error');
+        return;
+      }
+
+      data = mode === 'main'
+        ? cleanMainWarehouse(data, { colQty, colLot, colPrice, colMulti, colExp, colCode, colValue })
+        : cleanSubWarehouse(data, { colQty, colLot, colPrice, colExp, colCode });
+
+      renderTable(tableData);
+      updateCounts();
+      exportSummary.textContent = mode === 'main'
+        ? 'ส่งออกเป็น 1306.xls พร้อมชีท buy, exp, Table, Table1'
+        : 'ส่งออกเป็น 1306 suboutput.xls พร้อมชีท Table, Table1';
+      document.getElementById('previewTitle').textContent = `Preview: ${mode === 'main' ? 'Table คลังใหญ่' : 'Table คลังย่อย'}`;
+      resultsArea.classList.remove('hidden');
+    }
+
+    function cleanMainWarehouse(data, columns) {
+      const { colQty, colLot, colPrice, colMulti, colExp, colCode, colValue } = columns;
+
+      let filterQtyCount = 0;
+      data = data.filter(row => {
+        const qty = toNumber(row[colQty]);
+        if (Number.isFinite(qty) && qty < 0) {
+          filterQtyCount++;
+          return false;
+        }
+        return true;
+      });
+      addLog(`คลังใหญ่ 1. ลบจำนวน < 0: ${filterQtyCount.toLocaleString()} รายการ`, 'success');
+
+      data = filterLots(data, colLot);
+
+      let zeroSpecificCount = 0;
+      const zeroQtyCodeRemovals = new Set(['560813', '6510-002-0002', 'ori-povidone scrub 7.5%']);
+      data = data.filter(row => {
+        const qty = toNumber(row[colQty], 0);
+        const code = cleanKey(row[colCode]);
+        const lot = cleanKey(row[colLot]);
+        const shouldRemove = Math.abs(qty) < 1e-9 &&
+          (zeroQtyCodeRemovals.has(code) || (code === 'canabis01' && (lot === '11' || lot === '12')));
+        if (shouldRemove) {
+          zeroSpecificCount++;
+          return false;
+        }
+        return true;
+      });
+      addLog(`คลังใหญ่ 2.5 ลบรายการจำนวน = 0 เฉพาะรหัสที่ต้องตัด: ${zeroSpecificCount.toLocaleString()} รายการ`, 'success');
+
+      let decimalCount = 0;
+      data = data.map(row => {
+        const qty = toNumber(row[colQty]);
+        if (Number.isFinite(qty) && Math.abs(qty % 1) > 1e-9) {
+          decimalCount++;
+          const factor = decimalFactor(qty);
+          const price = toNumber(row[colPrice], 0);
+          const multi = toNumber(row[colMulti], 1);
+          if (factor > 1 && multi !== 0) {
+            const newQty = normalizeNumber(qty * factor);
+            const newPrice = normalizeNumber(qty < 1 ? price / factor : price);
+            const newMulti = normalizeNumber(multi / factor);
+            row[colQty] = newQty;
+            row[colPrice] = newPrice;
+            row[colMulti] = newMulti;
+            if (colValue) row[colValue] = normalizeNumber(newQty * newPrice);
+          }
+        }
+        return row;
+      });
+      addLog(`คลังใหญ่ 3. ปรับจำนวนทศนิยมตามสูตรคลังใหญ่: ${decimalCount.toLocaleString()} รายการ`, 'success');
+
+      const dateResult = applyDateRules(data, colExp, { removePast: false });
+      data = dateResult.data;
+      addLog(`คลังใหญ่ 4. ลบปีผิดปกติ: ${dateResult.invalidYearCount.toLocaleString()} รายการ`, 'success');
+
+      tableData = [...data].sort((a, b) => b._sortDate - a._sortDate);
+      expData = tableData.filter(row => toNumber(row[colQty], 0) !== 0).sort((a, b) => a._sortDate - b._sortDate);
+      buyData = tableData.filter(row => toNumber(row[colPrice], 0) !== 0);
+      addLog(`คลังใหญ่ 5. เตรียม Table=${tableData.length.toLocaleString()}, Exp=${expData.length.toLocaleString()}, Buy=${buyData.length.toLocaleString()}`, 'success');
+
+      return tableData;
+    }
+
+    function cleanSubWarehouse(data, columns) {
+      const { colQty, colLot, colExp, colCode } = columns;
+
+      let qtyRemoved = 0;
+      data = data.filter(row => {
+        const qty = toNumber(row[colQty]);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          qtyRemoved++;
+          return false;
+        }
+        return true;
+      });
+      addLog(`คลังย่อย 1. ลบจำนวน <= 0 หรือจำนวนไม่ถูกต้อง: ${qtyRemoved.toLocaleString()} รายการ`, 'success');
+
+      data = filterLots(data, colLot);
+
+      let placeholderCount = 0;
+      const subPlaceholderCodes = new Set(['23096301', 'b1880', 'dummy01']);
+      data = data.filter(row => {
+        if (subPlaceholderCodes.has(cleanKey(row[colCode]))) {
+          placeholderCount++;
+          return false;
+        }
+        return true;
+      });
+      addLog(`คลังย่อย 2.5 ลบรหัส placeholder/ทดสอบ: ${placeholderCount.toLocaleString()} รายการ`, 'success');
+
+      let decimalCount = 0;
+      data.forEach(row => {
+        const qty = toNumber(row[colQty]);
+        if (Number.isFinite(qty) && Math.abs(qty % 1) > 1e-9) decimalCount++;
+      });
+      addLog(`คลังย่อย 3. คงค่าทศนิยมเดิม: พบ ${decimalCount.toLocaleString()} รายการ`, 'success');
+
+      const dateResult = applyDateRules(data, colExp, { removePast: true });
+      data = dateResult.data;
+      addLog(`คลังย่อย 4. ลบวันหมดอายุที่เก่ากว่าวันนี้ ${dateResult.expiredCount.toLocaleString()} รายการ และปีผิด ${dateResult.invalidYearCount.toLocaleString()} รายการ`, 'success');
+
+      tableData = [...data].sort((a, b) => a._sortDate - b._sortDate);
+      expData = [];
+      buyData = [];
+      addLog(`คลังย่อย 5. เตรียม Table=${tableData.length.toLocaleString()} และส่งออกเฉพาะ Table/Table1`, 'success');
+
+      return tableData;
+    }
+
+    function filterLots(data, colLot) {
+      const lotsToRemove = excludeLotsInput.value
+        .split(',')
+        .map(keyword => keyword.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (lotsToRemove.length === 0) {
+        addLog('ข้ามการกรองล๊อต เพราะไม่ได้กำหนดคำค้นหา', 'info');
+        return data;
+      }
+
+      let removed = 0;
+      const filtered = data.filter(row => {
+        const lot = cleanKey(row[colLot]);
+        const shouldRemove = lotsToRemove.some(keyword => keyword === '01' ? lot === '01' : lot.includes(keyword));
+        if (shouldRemove) {
+          removed++;
+          return false;
+        }
+        return true;
+      });
+      addLog(`ลบล๊อตที่ตรงกับ [${lotsToRemove.join(', ')}]: ${removed.toLocaleString()} รายการ`, 'success');
+      return filtered;
+    }
+
+    function applyDateRules(data, colExp, options) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      let invalidYearCount = 0;
+      let expiredCount = 0;
+
+      const filtered = data.filter(row => {
+        const parsed = parseDateValue(row[colExp]);
+        if (!parsed) {
+          row._sortDate = 0;
+          return true;
+        }
+
+        if (parsed.year === 9456 || parsed.year === 2068 || parsed.year === 2054) {
+          invalidYearCount++;
+          return false;
+        }
+
+        if (options.removePast && parsed.time < todayStart.getTime()) {
+          expiredCount++;
+          return false;
+        }
+
+        row._sortDate = parsed.time;
+        return true;
+      });
+
+      return { data: filtered, invalidYearCount, expiredCount };
+    }
+
+    function addLog(message, type) {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 border-b border-slate-50 pb-2';
+      let icon = '<i data-lucide="info" class="w-4 h-4 text-blue-500 mt-0.5"></i>';
+      if (type === 'success') icon = '<i data-lucide="check" class="w-4 h-4 text-emerald-500 mt-0.5"></i>';
+      if (type === 'error') icon = '<i data-lucide="alert-triangle" class="w-4 h-4 text-red-500 mt-0.5"></i>';
+      li.innerHTML = `${icon}<span>${message}</span>`;
+      logList.appendChild(li);
+      lucide.createIcons({ root: li });
+    }
+
+    function updateCounts() {
+      document.getElementById('countTable').innerText = tableData.length.toLocaleString();
+      document.getElementById('countExp').innerText = expData.length.toLocaleString();
+      document.getElementById('countBuy').innerText = buyData.length.toLocaleString();
+      document.getElementById('countMetadata').innerText = metadataSheets.filter(sheet => sheet.rows.length > 0).length.toLocaleString();
+    }
+
+    function renderTable(data) {
+      const head = document.getElementById('previewHead');
+      const body = document.getElementById('previewBody');
+      head.innerHTML = '';
+      body.innerHTML = '';
+      if (data.length === 0) return;
+
+      const trHead = document.createElement('tr');
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.className = 'px-5 py-3 border-b border-slate-200';
+        th.textContent = header;
+        trHead.appendChild(th);
+      });
+      head.appendChild(trHead);
+
+      const displayLimit = Math.min(data.length, 60);
+      for (let i = 0; i < displayLimit; i++) {
+        const tr = document.createElement('tr');
+        tr.className = 'bg-white border-b hover:bg-slate-50';
+        headers.forEach(header => {
+          const td = document.createElement('td');
+          td.className = 'px-5 py-2';
+          td.textContent = data[i][header];
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      }
+
+      if (data.length > displayLimit) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = headers.length;
+        td.className = 'px-5 py-4 text-center text-slate-400 text-xs italic bg-slate-50';
+        td.textContent = `... แสดง ${displayLimit} รายการแรกจากทั้งหมด ${data.length.toLocaleString()} รายการ ...`;
+        tr.appendChild(td);
+        body.appendChild(tr);
+      }
+    }
+
+    function convertToAoA(dataArray) {
+      return [headers, ...dataArray.map(row => headers.map(header => row[header]))];
+    }
+
+    function apply1306DateFormat(ws) {
+      const dateCol = headers.findIndex(header => String(header).includes('วันหมดอายุ'));
+      if (dateCol < 0 || !ws['!ref']) return ws;
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let row = 1; row <= range.e.r; row++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: row, c: dateCol })];
+        if (cell && cell.t === 'n') cell.z = 'd/m/yyyy';
+      }
+      return ws;
+    }
+
+    function exportToExcel() {
+      if (tableData.length === 0) {
+        alert('ไม่มีข้อมูลสำหรับดาวน์โหลด');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      if (mode === 'main') {
+        XLSX.utils.book_append_sheet(wb, apply1306DateFormat(XLSX.utils.aoa_to_sheet(convertToAoA(buyData))), 'buy');
+        XLSX.utils.book_append_sheet(wb, apply1306DateFormat(XLSX.utils.aoa_to_sheet(convertToAoA(expData))), 'exp');
+      }
+
+      XLSX.utils.book_append_sheet(wb, apply1306DateFormat(XLSX.utils.aoa_to_sheet(convertToAoA(tableData))), 'Table');
+
+      metadataSheets.forEach(sheet => {
+        if (sheet.rows.length > 0) {
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet.rows), sheet.name);
+        }
+      });
+
+      XLSX.writeFile(wb, mode === 'main' ? '1306.xls' : '1306 suboutput.xls', { bookType: 'xls' });
+    }
+
+    function downloadCSV(dataArray, filename) {
+      if (dataArray.length === 0) {
+        alert('ไม่มีข้อมูลสำหรับดาวน์โหลด');
+        return;
+      }
+
+      let csvContent = '\uFEFF';
+      csvContent += headers.map(header => `"${String(header).replace(/"/g, '""')}"`).join(',') + '\n';
+      dataArray.forEach(row => {
+        csvContent += headers.map(header => {
+          const value = row[header] !== undefined ? String(row[header]) : '';
+          return `"${value.replace(/"/g, '""')}"`;
+        }).join(',') + '\n';
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(error => {
+          console.warn('Service worker registration failed:', error);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

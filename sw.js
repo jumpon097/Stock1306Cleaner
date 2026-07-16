@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1306-cleaner-pro-all-stock-v1';
+const CACHE_VERSION = '1306-cleaner-pro-all-stock-v2';
 const APP_SHELL = [
   './',
   './index.html',
